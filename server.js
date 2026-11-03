@@ -17,8 +17,8 @@ const keys = 'temperature,humidity,distance,step_count,fall_alert,activity_statu
 const periods = { '24h': 86400000, '7d': 604800000, '30d': 2592000000 };
 const username = process.env.WEB_USERNAME || '';
 const password = process.env.WEB_PASSWORD || '';
-if (!WEB_USERNAME || !WEB_PASSWORD || !TB_USERNAME || !TB_PASSWORD) {
-  console.error("Thiếu biến môi trường");
+if (!process.env.TB_USERNAME || !process.env.TB_PASSWORD) {
+  console.error("Thiếu cấu hình ThingsBoard");
   process.exit(1);
 }
 if (!Number.isInteger(port) || port < 1 || port > 65535) { console.error('PORT không hợp lệ'); process.exit(1); }
