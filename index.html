@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#12345a">
+  <title>QUOCAN IoT | Giám sát thông minh</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">Q</div>
+      <div><strong>QUOCAN IoT</strong><small>GIÁM SÁT THÔNG MINH</small></div>
+      <button class="close-menu" id="closeMenu" aria-label="Đóng menu">×</button>
+    </div>
+    <nav class="navigation">
+      <a class="nav-link active" href="#tong-quan"><span>▦</span>Tổng quan</a>
+      <a class="nav-link" href="#giam-sat"><span>◉</span>Giám sát cảm biến</a>
+      <a class="nav-link" href="#canh-bao"><span>♧</span>Cảnh báo an toàn</a>
+      <a class="nav-link" href="#bieu-do-lich-su"><span>▤</span>Lịch sử dữ liệu</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="connection-card">
+        <span class="pulse"></span>
+        <div><b>Kết nối nền tảng</b><small>ThingsBoard Cloud</small></div>
+      </div>
+      <small class="copyright">© 2026 QUOCAN IoT</small>
+    </div>
+  </aside>
+
+  <div class="page">
+    <header class="topbar">
+      <button class="menu-button" id="menuButton" aria-label="Mở menu">☰</button>
+      <div class="breadcrumb">Trang chủ <span>/</span> <b>Tổng quan</b></div>
+      <div class="top-actions">
+        <span class="live-pill"><i></i> Hệ thống giám sát</span>
+        <div class="avatar">Q</div>
+      </div>
+    </header>
+
+    <main id="tong-quan">
+      <section class="welcome">
+        <div>
+          <p class="eyebrow">TRUNG TÂM ĐIỀU KHIỂN</p>
+          <h1>Tổng quan hệ thống</h1>
+          <p class="subtitle">Theo dõi dữ liệu cảm biến và trạng thái an toàn của thiết bị QUOCAN IoT.</p>
+        </div>
+        <div class="date-chip"><span>◷</span><span id="currentTime">Đang cập nhật thời gian...</span></div>
+      </section>
+
+      <section class="status-strip">
+        <div class="status-icon">⌁</div>
+        <div class="status-copy"><b>Không gian giám sát QUOCAN IoT</b><small>Dữ liệu được cung cấp từ ThingsBoard Cloud</small></div>
+        <span class="status-label" id="connectionStatus">Đang kết nối...</span>
+      </section>
+
+      <section class="section-heading" id="giam-sat">
+        <div><h2>Thông số cảm biến</h2><p>Các chỉ số được cập nhật trong bảng điều khiển bên dưới.</p></div>
+        <span class="section-tag">GIÁM SÁT THỜI GIAN THỰC</span>
+      </section>
+
+      <section class="metric-grid">
+        <article class="metric-card">
+          <div class="metric-top"><span class="metric-icon orange">♨</span><span class="metric-label">NHIỆT ĐỘ</span></div>
+          <div class="metric-value" id="value-temperature">-- <small>°C</small></div>
+          <div class="metric-foot">Cảm biến DHT11</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-top"><span class="metric-icon blue">◌</span><span class="metric-label">ĐỘ ẨM</span></div>
+          <div class="metric-value" id="value-humidity">-- <small>%</small></div>
+          <div class="metric-foot">Cảm biến DHT11</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-top"><span class="metric-icon teal">↔</span><span class="metric-label">KHOẢNG CÁCH</span></div>
+          <div class="metric-value" id="value-distance">-- <small>cm</small></div>
+          <div class="metric-foot">Cảm biến HC-SR04</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-top"><span class="metric-icon purple">⌁</span><span class="metric-label">SỐ BƯỚC CHÂN</span></div>
+          <div class="metric-value" id="value-step_count">-- <small>bước</small></div>
+          <div class="metric-foot">Cảm biến MPU6050</div>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel alert-panel" id="canh-bao">
+          <div class="panel-heading"><div><h2>Trạng thái an toàn</h2><p>Theo dõi cảnh báo té ngã</p></div><span class="panel-symbol">✚</span></div>
+          <div class="safety-state">
+            <div class="shield">✓</div>
+            <div><b id="fallStatus">Đang chờ dữ liệu</b><small id="activityStatus">Chưa có thông tin hoạt động</small></div>
+          </div>
+          <div class="alert-note">Dữ liệu cảnh báo từ MPU6050 chỉ có tính tham khảo; không thay thế thiết bị cảnh báo an toàn chuyên dụng.</div>
+        </article>
+        <article class="panel device-panel">
+          <div class="panel-heading"><div><h2>Thông tin thiết bị</h2><p>Thiết bị thu thập dữ liệu</p></div><span class="device-chip">ESP32</span></div>
+          <div class="device-row"><span>Tên hệ thống</span><b>QUOCAN IoT</b></div>
+          <div class="device-row"><span>Bộ điều khiển</span><b>ESP32</b></div>
+          <div class="device-row"><span>Nền tảng dữ liệu</span><b>ThingsBoard Cloud</b></div>
+          <div class="device-row"><span>Cảm biến</span><b>DHT11 · HC-SR04 · MPU6050</b></div>
+        </article>
+      </section>
+
+             <section class="panel dashboard-panel" id="lich-su">
+         <div class="panel-heading dashboard-heading">
+           <div><h2>Dữ liệu mới nhất</h2><p>Tự động cập nhật mỗi 5 giây từ ThingsBoard Cloud</p></div>
+           <span class="cloud-tag">☁ ThingsBoard Cloud</span>
+         </div>
+         <p id="lastUpdate">Chưa nhận được dữ liệu.</p>
+         <p id="apiMessage" role="status">Đang thử kết nối...</p>
+         <div style="overflow-x:auto"><table class="telemetry-table"><thead><tr><th>Thông số</th><th>Giá trị</th><th>Thời điểm</th></tr></thead><tbody id="telemetryRows"><tr><td colspan="3">Đang tải...</td></tr></tbody></table></div>
+       </section>
+
+<footer><b>QUOCAN IoT</b><span>Hệ thống giám sát thông minh · Giao diện tiếng Việt</span></footer>
+    </main>
+  </div>
+  <div class="scrim" id="scrim"></div>
+  
+  <script src="js/app.js"></script>
+</body>
+</html>
