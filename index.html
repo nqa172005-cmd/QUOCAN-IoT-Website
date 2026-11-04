@@ -72,9 +72,9 @@
           <div class="metric-foot">Cảm biến DHT11</div>
         </article>
         <article class="metric-card">
-          <div class="metric-top"><span class="metric-icon teal">↔</span><span class="metric-label">KHOẢNG CÁCH</span></div>
-          <div class="metric-value" id="value-distance">-- <small>cm</small></div>
-          <div class="metric-foot">Cảm biến HC-SR04</div>
+          <div class="metric-top"><span class="metric-icon teal">↔</span><span class="metric-label">VẬN TỐC ƯỚC TÍNH</span></div>
+          <div class="metric-value" id="value-speed_kmh">-- <small>km/h</small></div>
+          <div class="metric-foot">Ước tính từ nhịp bước MPU6050</div>
         </article>
         <article class="metric-card">
           <div class="metric-top"><span class="metric-icon purple">⌁</span><span class="metric-label">SỐ BƯỚC CHÂN</span></div>
@@ -90,6 +90,7 @@
             <div class="shield">✓</div>
             <div><b id="fallStatus">Đang chờ dữ liệu</b><small id="activityStatus">Chưa có thông tin hoạt động</small></div>
           </div>
+          <div class="fall-detail">Hướng nghi ngờ ngã: <b id="fallDirection">Chưa xác định</b></div>
           <div class="alert-note">Dữ liệu cảnh báo từ MPU6050 chỉ có tính tham khảo; không thay thế thiết bị cảnh báo an toàn chuyên dụng.</div>
         </article>
         <article class="panel device-panel">
@@ -97,7 +98,7 @@
           <div class="device-row"><span>Tên hệ thống</span><b>QUOCAN IoT</b></div>
           <div class="device-row"><span>Bộ điều khiển</span><b>ESP32</b></div>
           <div class="device-row"><span>Nền tảng dữ liệu</span><b>ThingsBoard Cloud</b></div>
-          <div class="device-row"><span>Cảm biến</span><b>DHT11 · HC-SR04 · MPU6050</b></div>
+          <div class="device-row"><span>Cảm biến</span><b>DHT11 · MPU6050</b></div>
         </article>
       </section>
 
@@ -110,6 +111,24 @@
          <p id="apiMessage" role="status">Đang thử kết nối...</p>
          <div style="overflow-x:auto"><table class="telemetry-table"><thead><tr><th>Thông số</th><th>Giá trị</th><th>Thời điểm</th></tr></thead><tbody id="telemetryRows"><tr><td colspan="3">Đang tải...</td></tr></tbody></table></div>
        </section>
+
+
+      <section class="panel dashboard-panel" id="chuyen-dong">
+        <div class="panel-heading"><div><h2>Vận động và gia tốc</h2><p>Ước tính tốc độ đi bộ, trạng thái và gia tốc ba trục</p></div></div>
+        <div class="motion-grid">
+          <div class="motion-box"><span>Hoạt động</span><b id="activityDetail">Chưa có dữ liệu</b></div>
+          <div class="motion-box"><span>Gia tốc X</span><b id="value-accel_x">--</b></div>
+          <div class="motion-box"><span>Gia tốc Y</span><b id="value-accel_y">--</b></div>
+          <div class="motion-box"><span>Gia tốc Z</span><b id="value-accel_z">--</b></div>
+        </div>
+        <p class="alert-note">Vận tốc chỉ là ước tính từ nhịp bước; không phải phép đo GPS. Hướng ngã cần hiệu chuẩn cảm biến gắn ở thắt lưng.</p>
+      </section>
+      <section class="panel dashboard-panel" id="bieu-do-lich-su">
+        <div class="panel-heading"><div><h2>Biểu đồ lịch sử</h2><p>Dữ liệu từ ThingsBoard Cloud</p></div></div>
+        <div class="history-controls"><label>Khoảng thời gian <select id="historyPeriod"><option value="24h">24 giờ</option><option value="7d">7 ngày</option><option value="30d">30 ngày</option></select></label><label>Thông số <select id="historyMetric"><option value="temperature">Nhiệt độ</option><option value="humidity">Độ ẩm</option><option value="speed_kmh">Vận tốc ước tính</option><option value="step_count">Số bước chân</option><option value="accel_x">Gia tốc X</option><option value="accel_y">Gia tốc Y</option><option value="accel_z">Gia tốc Z</option></select></label><button id="historyReload" type="button">Tải lại</button><button id="historyExport" type="button">Xuất CSV</button></div>
+        <p id="historyMessage" role="status">Đang tải lịch sử...</p><canvas id="historyChart" height="310" aria-label="Biểu đồ dữ liệu lịch sử"></canvas><p id="historySummary"></p>
+        <div class="history-tables"><div><h3>Bảng dữ liệu lịch sử</h3><div class="table-scroll"><table class="telemetry-table"><thead><tr><th>Thời gian</th><th>Giá trị</th></tr></thead><tbody id="historyRows"></tbody></table></div></div><div><h3>Lịch sử cảnh báo</h3><div class="table-scroll"><table class="telemetry-table"><thead><tr><th>Thời gian</th><th>Trạng thái</th></tr></thead><tbody id="fallHistoryRows"></tbody></table></div></div></div>
+      </section>
 
 <footer><b>QUOCAN IoT</b><span>Hệ thống giám sát thông minh · Giao diện tiếng Việt</span></footer>
     </main>

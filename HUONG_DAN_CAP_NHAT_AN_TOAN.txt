@@ -1,0 +1,12 @@
+QUOCAN IoT - NANG CAP WEBSITE AN TOAN
+
+1. KHONG xoa website Render dang chay. Tao nhanh backup tren GitHub (branch hoac tag) truoc khi thay file.
+2. Thu nghiem bo code nay o may tinh: npm install; npm start. Can TB_USERNAME, TB_PASSWORD, TB_DEVICE_NAME trong .env (KHONG day .env len GitHub).
+3. Test trang chu, /api/telemetry, /api/history?period=24h, bieu do, CSV.
+4. Neu dung: thay cac file tren GitHub o dung thu muc (index.html, css/style.css, js/app.js, server.js, package.json), Render tu deploy.
+5. Kiem tra Render Logs va website. Neu loi, rollback ve commit truoc trong GitHub/Render.
+6. Khong can EMAIL_USER/EMAIL_APP_PASSWORD, khong co email.
+7. Giữ nguyên bien moi truong ThingsBoard dang chay tren Render.
+8. Neu speed_kmh hoac fall_direction hien --: kiem tra ESP32 da gui key moi len dung device ThingsBoard chua.
+9. Huong nga chua hieu chuan thi chi la uoc tinh, khong dung de dam bao an toan.
+10. Bo ZIP nay dung server.js Render khong yeu cau dang nhap web; neu GitHub hien tai co thay doi khac, can doi chieu truoc khi ghi de.
