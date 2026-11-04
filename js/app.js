@@ -4,13 +4,15 @@ const lastUpdate = document.getElementById("lastUpdate");
 const apiMessage = document.getElementById("apiMessage");
 const fallStatus = document.getElementById("fallStatus");
 const activityStatus = document.getElementById("activityStatus");
-const keys = ["temperature","humidity","distance","step_count","fall_alert","activity_status"];
-const labels = {temperature:"Nhiệt độ",humidity:"Độ ẩm",distance:"Khoảng cách",step_count:"Số bước chân",fall_alert:"Cảnh báo té ngã",activity_status:"Trạng thái hoạt động"};
-const units = {temperature:"°C",humidity:"%",distance:"cm",step_count:"bước"};
+const keys = ["temperature","humidity","speed_kmh","step_count","accel_x","accel_y","accel_z","fall_alert","fall_candidate","fall_direction","activity_status"];
+const labels = {temperature:"Nhiệt độ",humidity:"Độ ẩm",speed_kmh:"Vận tốc ước tính",accel_x:"Gia tốc X",accel_y:"Gia tốc Y",accel_z:"Gia tốc Z",fall_candidate:"Đang kiểm tra ngã",fall_direction:"Hướng nghi ngờ ngã",step_count:"Số bước chân",fall_alert:"Cảnh báo té ngã",activity_status:"Trạng thái hoạt động"};
+const units = {temperature:"°C",humidity:"%",speed_kmh:"km/h",accel_x:"m/s²",accel_y:"m/s²",accel_z:"m/s²",step_count:"bước"};
 function capNhatThoiGian(){timeNode.textContent=new Date().toLocaleString("vi-VN");}
 capNhatThoiGian(); setInterval(capNhatThoiGian,1000);
 function newest(series){return Array.isArray(series)&&series.length?series.reduce((a,b)=>b.ts>a.ts?b:a):null;}
-function formatValue(k,v){if(v===null||v===undefined||v==="")return "--";if(k==="fall_alert")return String(v).toLowerCase()==="true"||String(v)==="1"?"Có cảnh báo":"Không có cảnh báo";return String(v);}
+function formatValue(k,v){
+ if(k==="activity_status")return ({WALKING_SLOW:"Đi chậm",WALKING_FAST:"Đi nhanh",WALKING:"Đang đi",STILL_OR_IDLE:"Đứng/ngồi nghỉ",RESTING:"Đang nghỉ",FALL_ALERT:"Cảnh báo ngã",CHECKING_EVENT:"Đang kiểm tra"})[v]||String(v);
+ if(k==="fall_direction")return ({FORWARD:"Phía trước",BACKWARD:"Phía sau",LEFT:"Bên trái",RIGHT:"Bên phải",NONE:"Chưa xác định",UNKNOWN:"Chưa xác định"})[v]||String(v);if(v===null||v===undefined||v==="")return "--";if(k==="fall_alert")return String(v).toLowerCase()==="true"||String(v)==="1"?"Có cảnh báo":"Không có cảnh báo";return String(v);}
 let loading=false;
 async function capNhatDuLieu(){
  if(loading)return; loading=true;
@@ -32,7 +34,8 @@ async function capNhatDuLieu(){
     fallStatus.classList.toggle('alert-active',!!point&&value==='Có cảnh báo');
     fallStatus.classList.toggle('alert-clear',!!point&&value==='Không có cảnh báo');
    }
-   if(k==='activity_status')activityStatus.textContent=point?'Hoạt động: '+value:'Chưa có thông tin hoạt động';
+   if(k==='activity_status'){activityStatus.textContent=point?'Hoạt động: '+value:'Chưa có thông tin hoạt động';document.getElementById('activityDetail').textContent=value;}
+   if(k==='fall_direction')document.getElementById('fallDirection').textContent=value;
    const tr=document.createElement('tr');
    for(const cell of [labels[k],value+(units[k]?' '+units[k]:''),point?new Date(point.ts).toLocaleString('vi-VN'):'--']){
     const td=document.createElement('td');td.textContent=cell;tr.append(td);
@@ -64,13 +67,13 @@ const historyPeriodNode = document.getElementById('historyPeriod');
 const historyMetricNode = document.getElementById('historyMetric');
 const historyMessageNode = document.getElementById('historyMessage');
 let historyPayload = null;
-const historyLabels = {temperature:'Nhiệt độ',humidity:'Độ ẩm',distance:'Khoảng cách',step_count:'Số bước chân'};
-const historyUnits = {temperature:'°C',humidity:'%',distance:'cm',step_count:'bước'};
+const historyLabels = {temperature:'Nhiệt độ',humidity:'Độ ẩm',speed_kmh:'Vận tốc ước tính',accel_x:'Gia tốc X',accel_y:'Gia tốc Y',accel_z:'Gia tốc Z',step_count:'Số bước chân'};
+const historyUnits = {temperature:'°C',humidity:'%',speed_kmh:'km/h',accel_x:'m/s²',accel_y:'m/s²',accel_z:'m/s²',step_count:'bước'};
 const vnTime = ts => new Date(Number(ts)).toLocaleString('vi-VN');
 function historyPoints(){
  const k=historyMetricNode.value;
  return (historyPayload?.series?.[k]||[]).map(p=>({ts:Number(p.ts),value:Number(p.value)}))
-  .filter(p=>Number.isFinite(p.ts)&&Number.isFinite(p.value)&&!(k==='distance'&&p.value<0))
+  .filter(p=>Number.isFinite(p.ts)&&Number.isFinite(p.value))
   .sort((a,b)=>a.ts-b.ts);
 }
 function drawHistory(){
