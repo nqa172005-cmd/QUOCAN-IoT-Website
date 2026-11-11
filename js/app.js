@@ -1,124 +1,108 @@
-const timeNode = document.getElementById("currentTime");
-const statusNode = document.getElementById("connectionStatus");
-const lastUpdate = document.getElementById("lastUpdate");
-const apiMessage = document.getElementById("apiMessage");
-const fallStatus = document.getElementById("fallStatus");
-const activityStatus = document.getElementById("activityStatus");
-const keys = ["temperature","humidity","speed_kmh","step_count","accel_x","accel_y","accel_z","fall_alert","fall_candidate","fall_direction","activity_status"];
-const labels = {temperature:"Nhiệt độ",humidity:"Độ ẩm",speed_kmh:"Vận tốc ước tính",accel_x:"Gia tốc X",accel_y:"Gia tốc Y",accel_z:"Gia tốc Z",fall_candidate:"Đang kiểm tra ngã",fall_direction:"Hướng nghi ngờ ngã",step_count:"Số bước chân",fall_alert:"Cảnh báo té ngã",activity_status:"Trạng thái hoạt động"};
-const units = {temperature:"°C",humidity:"%",speed_kmh:"km/h",accel_x:"m/s²",accel_y:"m/s²",accel_z:"m/s²",step_count:"bước"};
-function capNhatThoiGian(){timeNode.textContent=new Date().toLocaleString("vi-VN");}
-capNhatThoiGian(); setInterval(capNhatThoiGian,1000);
-function newest(series){return Array.isArray(series)&&series.length?series.reduce((a,b)=>b.ts>a.ts?b:a):null;}
-function formatValue(k,v){
- if(k==="activity_status")return ({WALKING_SLOW:"Đi chậm",WALKING_FAST:"Đi nhanh",WALKING:"Đang đi",STILL_OR_IDLE:"Đứng/ngồi nghỉ",RESTING:"Đang nghỉ",FALL_ALERT:"Cảnh báo ngã",CHECKING_EVENT:"Đang kiểm tra"})[v]||String(v);
- if(k==="fall_direction")return ({FORWARD:"Phía trước",BACKWARD:"Phía sau",LEFT:"Bên trái",RIGHT:"Bên phải",NONE:"Chưa xác định",UNKNOWN:"Chưa xác định"})[v]||String(v);if(v===null||v===undefined||v==="")return "--";if(k==="fall_alert")return String(v).toLowerCase()==="true"||String(v)==="1"?"Có cảnh báo":"Không có cảnh báo";return String(v);}
+'use strict';
+const $ = id => document.getElementById(id);
+const keys = ['temperature','humidity','step_count','speed_kmh','activity_status','accel_x','accel_y','accel_z','accel_total','gyro_x','gyro_y','gyro_z','fall_candidate','fall_alert','fall_direction','fall_event_id'];
+const labels = {temperature:'Nhiệt độ',humidity:'Độ ẩm',step_count:'Số bước',speed_kmh:'Vận tốc ước tính',activity_status:'Trạng thái vận động',accel_x:'Gia tốc X',accel_y:'Gia tốc Y',accel_z:'Gia tốc Z',accel_total:'Gia tốc tổng',gyro_x:'Vận tốc góc X',gyro_y:'Vận tốc góc Y',gyro_z:'Vận tốc góc Z',fall_candidate:'Nghi ngờ ngã',fall_alert:'Cảnh báo ngã',fall_direction:'Hướng nghi ngờ ngã',fall_event_id:'Mã sự kiện'};
+const units = {temperature:'°C',humidity:'%',step_count:'bước',speed_kmh:'km/h',accel_x:'m/s²',accel_y:'m/s²',accel_z:'m/s²',accel_total:'m/s²',gyro_x:'rad/s',gyro_y:'rad/s',gyro_z:'rad/s'};
+const activityLabels = {STILL_OR_IDLE:'Đứng yên / nghỉ',WALKING_SLOW:'Đi chậm',WALKING_FAST:'Đi nhanh',CHECKING_EVENT:'Đang kiểm tra nghi ngờ ngã',FALL_ALERT:'Cảnh báo ngã'};
+const directionLabels = {FRONT:'Phía trước',FORWARD:'Phía trước',BACK:'Phía sau',BACKWARD:'Phía sau',LEFT:'Bên trái',RIGHT:'Bên phải',UNKNOWN:'Chưa xác định',NONE:'Không có sự kiện'};
+const directions = {FRONT:'FRONT',FORWARD:'FRONT',BACK:'BACK',BACKWARD:'BACK',LEFT:'LEFT',RIGHT:'RIGHT'};
+const categorical = new Set(['activity_status','fall_direction','fall_alert','fall_candidate']);
+const isOn = value => String(value)==='1'||String(value).toLowerCase()==='true';
+const formatTime = ts => Number.isFinite(Number(ts)) ? new Date(Number(ts)).toLocaleString('vi-VN') : '--';
+const latest = a => Array.isArray(a)&&a.length?a.reduce((p,q)=>Number(q.ts)>Number(p.ts)?q:p):null;
+function format(k,v){
+ if(v===undefined||v===null||v==='')return '--';
+ if(k==='activity_status')return activityLabels[v]||String(v);
+ if(k==='fall_direction')return directionLabels[v]||String(v);
+ if(k==='fall_alert'||k==='fall_candidate')return isOn(v)?'Có':'Không';
+ const n=Number(v);if(Number.isFinite(n)&&k!=='fall_event_id'&&k!=='step_count')return n.toLocaleString('vi-VN',{maximumFractionDigits:k.startsWith('gyro')?3:2});
+ return String(v);
+}
+function setValue(id,k,p){const el=$(id);if(!el)return;el.textContent=p?format(k,p.value)+(units[k]?' '+units[k]:''):'--';}
+function row(cells){const tr=document.createElement('tr');for(const cell of cells){const td=document.createElement('td');td.textContent=String(cell);tr.append(td);}return tr;}
+function setState(code,stale){document.querySelectorAll('.state-card').forEach(el=>el.classList.toggle('selected',!stale&&el.dataset.state===code));$('activityFreshness').textContent=stale?'Dữ liệu cũ hoặc thiết bị ngoại tuyến — không xác nhận trạng thái hiện tại.':'Trạng thái hiện tại: '+(activityLabels[code]||'Không xác định');}
+function setDirection(code,stale){document.querySelectorAll('[data-dir]').forEach(el=>el.classList.toggle('selected',!stale&&el.dataset.dir===directions[code]));}
 let loading=false;
-async function capNhatDuLieu(){
- if(loading)return; loading=true;
+async function refresh(){
+ if(loading)return;loading=true;
  try{
-  const res=await fetch('/api/telemetry',{cache:'no-store'});
-  const body=await res.json();
-  if(!res.ok)throw new Error(body.error||'Không lấy được dữ liệu');
-  let latestTs=0;
-  const rows=[];
-  for(const k of keys){
-   const point=newest(body[k]);
-   if(point)latestTs=Math.max(latestTs,point.ts);
-   const value=point?formatValue(k,point.value):'--';
-   const node=document.getElementById('value-'+k);
-   if(node)node.innerHTML='';
-   if(node){node.append(document.createTextNode(value+' '));const small=document.createElement('small');small.textContent=units[k]||'';node.append(small);}
-   if(k==='fall_alert'){
-    fallStatus.textContent=point?value:'Chưa có dữ liệu cảnh báo';
-    fallStatus.classList.toggle('alert-active',!!point&&value==='Có cảnh báo');
-    fallStatus.classList.toggle('alert-clear',!!point&&value==='Không có cảnh báo');
-   }
-   if(k==='activity_status'){activityStatus.textContent=point?'Hoạt động: '+value:'Chưa có thông tin hoạt động';document.getElementById('activityDetail').textContent=value;}
-   if(k==='fall_direction')document.getElementById('fallDirection').textContent=value;
-   const tr=document.createElement('tr');
-   for(const cell of [labels[k],value+(units[k]?' '+units[k]:''),point?new Date(point.ts).toLocaleString('vi-VN'):'--']){
-    const td=document.createElement('td');td.textContent=cell;tr.append(td);
-   }
-   rows.push(tr);
-  }
-  document.getElementById('telemetryRows').replaceChildren(...rows);
-  const age=latestTs?Date.now()-latestTs:Infinity;
-  const recent=age>=0&&age<60000;
-  statusNode.textContent=recent?'Thiết bị đang gửi dữ liệu':'Chưa có dữ liệu mới';
-  statusNode.classList.toggle('connected',recent);
-  statusNode.classList.toggle('disconnected',!recent);
-  lastUpdate.textContent=latestTs?'Dữ liệu gần nhất: '+new Date(latestTs).toLocaleString('vi-VN'):'Chưa có dữ liệu telemetry.';
-  apiMessage.textContent=recent?'Đã kết nối ThingsBoard.':'Đã kết nối máy chủ; hãy kiểm tra ESP32 nếu dữ liệu chưa cập nhật.';
- }catch(err){statusNode.textContent='Lỗi kết nối';statusNode.classList.add('disconnected');statusNode.classList.remove('connected');apiMessage.textContent=err.message;}
+  const res=await fetch('/api/telemetry',{cache:'no-store'}),data=await res.json();if(!res.ok)throw Error(data.error||'Không lấy được dữ liệu');
+  const pts=Object.fromEntries(keys.map(k=>[k,latest(data[k])]));
+  const ts=Math.max(0,...Object.values(pts).filter(Boolean).map(p=>Number(p.ts)||0));
+  const stale=!ts||Date.now()-ts>30000||ts>Date.now()+30000;
+  $('connectionStatus').textContent=stale?'Dữ liệu cũ / thiết bị ngoại tuyến':'Thiết bị đang gửi dữ liệu';
+  $('connectionStatus').classList.toggle('connected',!stale);$('connectionStatus').classList.toggle('disconnected',stale);
+  $('lastUpdate').textContent=ts?'Mẫu mới nhất: '+formatTime(ts):'Chưa có dữ liệu';
+  $('apiMessage').textContent=stale?'Máy chủ truy xuất được ThingsBoard, nhưng chưa có telemetry mới.':'Dữ liệu từ ThingsBoard đang được cập nhật.';
+  for(const k of keys)setValue('value-'+k,k,pts[k]);
+  $('telemetryRows').replaceChildren(...keys.map(k=>row([labels[k],pts[k]?format(k,pts[k].value)+(units[k]?' '+units[k]:''):'--',pts[k]?formatTime(pts[k].ts):'--'])));
+  const activity=pts.activity_status?.value;
+  $('activityStatus').textContent=stale?'Trạng thái không còn mới':(activityLabels[activity]||'Chưa có trạng thái');
+  $('activityDetail').textContent=stale?'Dữ liệu cũ':(activityLabels[activity]||'--');
+  setState(activity,stale);
+  const alert=pts.fall_alert&&isOn(pts.fall_alert.value),candidate=pts.fall_candidate&&isOn(pts.fall_candidate.value);
+  $('fallStatus').textContent=stale?'Chưa xác nhận trạng thái mới':alert?'Đã kích hoạt cảnh báo':candidate?'Đang kiểm tra nghi ngờ ngã':'Chưa có cảnh báo';
+  $('fallStatus').classList.toggle('alert-active',!stale&&!!alert);$('fallStatus').classList.toggle('alert-clear',!stale&&!alert&&!candidate);
+  $('fallCandidateValue').textContent=pts.fall_candidate?format('fall_candidate',pts.fall_candidate.value):'--';
+  $('fallEventValue').textContent=pts.fall_event_id?String(pts.fall_event_id.value):'--';
+  $('fallTimeValue').textContent=pts.fall_alert?formatTime(pts.fall_alert.ts):'--';
+  const direction=pts.fall_direction?.value||'NONE';
+  $('fallDirection').textContent=stale?'Dữ liệu cũ':(directionLabels[direction]||direction);
+  setDirection(direction,stale);
+ }catch(e){$('connectionStatus').textContent='Lỗi truy xuất dữ liệu';$('connectionStatus').classList.add('disconnected');$('connectionStatus').classList.remove('connected');$('apiMessage').textContent=e.message;setState(null,true);setDirection(null,true);}
  finally{loading=false;}
 }
-capNhatDuLieu();setInterval(capNhatDuLieu,5000);
-const sidebar=document.getElementById('sidebar');const scrim=document.getElementById('scrim');
-function dongMenu(){sidebar.classList.remove('open');scrim.classList.remove('show');}
-document.getElementById('menuButton').addEventListener('click',()=>{sidebar.classList.add('open');scrim.classList.add('show');});
-document.getElementById('closeMenu').addEventListener('click',dongMenu);
-scrim.addEventListener('click',dongMenu);
-document.querySelectorAll('.nav-link').forEach(link=>link.addEventListener('click',()=>{document.querySelectorAll('.nav-link').forEach(item=>item.classList.remove('active'));link.classList.add('active');dongMenu();}));
-
-
-// ===== LỊCH SỬ DỮ LIỆU =====
-const historyPeriodNode = document.getElementById('historyPeriod');
-const historyMetricNode = document.getElementById('historyMetric');
-const historyMessageNode = document.getElementById('historyMessage');
-let historyPayload = null;
-const historyLabels = {temperature:'Nhiệt độ',humidity:'Độ ẩm',speed_kmh:'Vận tốc ước tính',accel_x:'Gia tốc X',accel_y:'Gia tốc Y',accel_z:'Gia tốc Z',step_count:'Số bước chân'};
-const historyUnits = {temperature:'°C',humidity:'%',speed_kmh:'km/h',accel_x:'m/s²',accel_y:'m/s²',accel_z:'m/s²',step_count:'bước'};
-const vnTime = ts => new Date(Number(ts)).toLocaleString('vi-VN');
-function historyPoints(){
- const k=historyMetricNode.value;
- return (historyPayload?.series?.[k]||[]).map(p=>({ts:Number(p.ts),value:Number(p.value)}))
-  .filter(p=>Number.isFinite(p.ts)&&Number.isFinite(p.value))
-  .sort((a,b)=>a.ts-b.ts);
-}
+$('currentTime').textContent=new Date().toLocaleString('vi-VN');setInterval(()=>$('currentTime').textContent=new Date().toLocaleString('vi-VN'),1000);
+refresh();setInterval(refresh,5000);
+const sidebar=$('sidebar'),scrim=$('scrim');function closeMenu(){sidebar.classList.remove('open');scrim.classList.remove('show');}
+$('menuButton').addEventListener('click',()=>{sidebar.classList.add('open');scrim.classList.add('show');});$('closeMenu').addEventListener('click',closeMenu);scrim.addEventListener('click',closeMenu);
+document.querySelectorAll('.nav-link').forEach(a=>a.addEventListener('click',()=>{document.querySelectorAll('.nav-link').forEach(x=>x.classList.remove('active'));a.classList.add('active');closeMenu();}));
+// Lịch sử: truy vấn riêng một khóa để giảm tải và tránh làm mất đỉnh do lấy AVG mặc định.
+let history=null,historyLoading=false;
+function points(){const k=$('historyMetric').value;return(history?.series?.[k]||[]).map(p=>({ts:Number(p.ts),value:categorical.has(k)?String(p.value):Number(p.value)})).filter(p=>Number.isFinite(p.ts)&&(categorical.has(k)||Number.isFinite(p.value))).sort((a,b)=>a.ts-b.ts);}
 function drawHistory(){
- const canvas=document.getElementById('historyChart');
- const width=Math.max(300,Math.round(canvas.getBoundingClientRect().width));
- const height=canvas.getBoundingClientRect().height||310;
- const dpr=Math.min(window.devicePixelRatio||1,2);
- canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
- const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
- const points=historyPoints();
- const rows=document.getElementById('historyRows');rows.replaceChildren();
- const unit=historyUnits[historyMetricNode.value];
- if(!points.length){ctx.fillStyle='#71849a';ctx.font='13px Segoe UI,Arial';ctx.fillText('Không có dữ liệu lịch sử trong khoảng này.',18,55);document.getElementById('historySummary').textContent='Chưa có dữ liệu cho thông số đã chọn.';const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=2;td.textContent='Không có dữ liệu';tr.append(td);rows.append(tr);return;}
- const vals=points.map(p=>p.value);let min=Math.min(...vals),max=Math.max(...vals);
- if(min===max){min-=1;max+=1;}else{const pad=(max-min)*.12;min-=pad;max+=pad;}
- const l=58,r=18,t=18,b=43,plotW=width-l-r,plotH=height-t-b;
- const first=points[0].ts,last=points[points.length-1].ts;
- const x=ts=>l+(last===first?.5:(ts-first)/(last-first))*plotW;
- const y=v=>t+(max-v)/(max-min)*plotH;
- ctx.font='11px Segoe UI,Arial';ctx.lineWidth=1;
- for(let i=0;i<=4;i++){const yy=t+i*plotH/4;ctx.strokeStyle='#e8eff7';ctx.beginPath();ctx.moveTo(l,yy);ctx.lineTo(width-r,yy);ctx.stroke();ctx.fillStyle='#7a8fa3';ctx.fillText((max-i*(max-min)/4).toFixed(1),6,yy+4);}
- ctx.fillStyle='#7a8fa3';ctx.fillText(new Date(first).toLocaleDateString('vi-VN'),l,height-14);ctx.textAlign='right';ctx.fillText(new Date(last).toLocaleDateString('vi-VN'),width-r,height-14);ctx.textAlign='left';
- ctx.strokeStyle='#2476c7';ctx.lineWidth=2;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(x(p.ts),y(p.value)):ctx.moveTo(x(p.ts),y(p.value)));ctx.stroke();
- if(points.length<=60){ctx.fillStyle='#2476c7';points.forEach(p=>{ctx.beginPath();ctx.arc(x(p.ts),y(p.value),2.4,0,Math.PI*2);ctx.fill();});}
- const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
- document.getElementById('historySummary').textContent=`${historyLabels[historyMetricNode.value]} · ${points.length} mốc · Thấp nhất: ${Math.min(...vals).toFixed(1)} ${unit} · Cao nhất: ${Math.max(...vals).toFixed(1)} ${unit} · Trung bình: ${avg.toFixed(1)} ${unit}`;
- for(const p of [...points].reverse().slice(0,200)){const tr=document.createElement('tr');for(const cell of [vnTime(p.ts),p.value.toFixed(2)+' '+unit]){const td=document.createElement('td');td.textContent=cell;tr.append(td);}rows.append(tr);}
+ const canvas=$('historyChart'),w=Math.max(300,Math.round(canvas.getBoundingClientRect().width)),h=310,dpr=Math.min(devicePixelRatio||1,2);canvas.width=w*dpr;canvas.height=h*dpr;
+ const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+ const pts=points(),k=$('historyMetric').value,table=$('historyRows');table.replaceChildren(...pts.slice(-250).reverse().map(p=>row([formatTime(p.ts),format(k,p.value)+(units[k]?' '+units[k]:'')])));
+ if(!pts.length){ctx.fillStyle='#66788a';ctx.font='14px Arial';ctx.fillText('Không có dữ liệu trong khoảng đã chọn.',15,55);$('historySummary').textContent='Không có mẫu dữ liệu.';return;}
+ const left=62,right=20,top=24,bottom=48,pw=w-left-right,ph=h-top-bottom,first=pts[0].ts,last=pts.at(-1).ts;
+ const x=ts=>left+(last===first?.5:(ts-first)/(last-first))*pw;
+ let vals,kind;
+ if(categorical.has(k)){kind='category';const names=[...new Set(pts.map(p=>String(p.value)))];vals=pts.map(p=>names.indexOf(String(p.value)));$('historySummary').textContent=`${labels[k]}: ${pts.length} mẫu · Giá trị: ${names.map(n=>format(k,n)).join(' / ')}`;
+  const y=i=>top+ph-(i+.5)/Math.max(names.length,1)*ph;
+  ctx.font='11px Arial';names.forEach((n,i)=>{ctx.fillStyle='#65788d';ctx.fillText(format(k,n).slice(0,19),5,y(i)+4);});
+  ctx.strokeStyle='#2476c7';ctx.lineWidth=2;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(x(p.ts),y(vals[i])):ctx.moveTo(x(p.ts),y(vals[i])));ctx.stroke();
+ }else{
+  kind='number';vals=pts.map(p=>p.value);let min=Math.min(...vals),max=Math.max(...vals);if(min===max){min=Math.max(0,min-1);max+=1;}else{const pad=(max-min)*.1;min=Math.max(0,min-pad);max+=pad;}
+  const y=v=>top+(max-v)/(max-min)*ph;
+  ctx.font='11px Arial';for(let i=0;i<=4;i++){const yy=top+i*ph/4;ctx.strokeStyle='#e5ebf2';ctx.beginPath();ctx.moveTo(left,yy);ctx.lineTo(w-right,yy);ctx.stroke();ctx.fillStyle='#65788d';ctx.fillText((max-i*(max-min)/4).toFixed(2),5,yy+4);}
+  ctx.strokeStyle='#2476c7';ctx.lineWidth=2;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(x(p.ts),y(p.value)):ctx.moveTo(x(p.ts),y(p.value)));ctx.stroke();
+  const mean=vals.reduce((a,b)=>a+b,0)/vals.length;
+  $('historySummary').textContent=`${labels[k]} · ${pts.length} mẫu · Min: ${Math.min(...vals).toFixed(2)} · Max: ${Math.max(...vals).toFixed(2)} · TB: ${mean.toFixed(2)} ${units[k]||''}`;
+ }
+ ctx.font='11px Arial';ctx.fillStyle='#65788d';ctx.fillText(new Date(first).toLocaleString('vi-VN'),left,h-13);ctx.textAlign='right';ctx.fillText(new Date(last).toLocaleString('vi-VN'),w-right,h-13);ctx.textAlign='left';
 }
-function renderFalls(){
- const tbody=document.getElementById('fallHistoryRows');tbody.replaceChildren();
- const samples=(historyPayload?.fallSamples||[]).filter(p=>String(p.value)==='1'||String(p.value).toLowerCase()==='true').sort((a,b)=>Number(b.ts)-Number(a.ts));
- if(!samples.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=2;td.textContent='Không tìm thấy mẫu cảnh báo đã lưu trong khoảng này.';tr.append(td);tbody.append(tr);return;}
- // Gom các mẫu cảnh báo liên tiếp thành một đợt, không coi từng mẫu là một lần ngã.
- const grouped=[];for(const p of [...samples].reverse()){const ts=Number(p.ts);if(!grouped.length||ts-grouped[grouped.length-1].last>60000)grouped.push({first:ts,last:ts});else grouped[grouped.length-1].last=ts;}
- for(const event of grouped.reverse().slice(0,100)){const tr=document.createElement('tr');for(const cell of [vnTime(event.first),'Có mẫu cảnh báo']){const td=document.createElement('td');td.textContent=cell;tr.append(td);}tbody.append(tr);}
+function renderEvents(){
+ const el=$('fallHistoryRows');const events=history?.events||{};
+ const alerts=(events.fall_alert||[]).filter(p=>isOn(p.value)).sort((a,b)=>Number(a.ts)-Number(b.ts));
+ const ids=(events.fall_event_id||[]).sort((a,b)=>Number(a.ts)-Number(b.ts));
+ const dirs=(events.fall_direction||[]).sort((a,b)=>Number(a.ts)-Number(b.ts));
+ // Một đợt báo liên tục được gom, không tính mỗi mẫu 3 giây là một sự kiện mới.
+ const grouped=[];for(const p of alerts){const ts=Number(p.ts);if(!grouped.length||ts-grouped.at(-1).end>60000)grouped.push({start:ts,end:ts});else grouped.at(-1).end=ts;}
+ const rows=grouped.reverse().slice(0,100).map(g=>{
+  const nearest=arr=>arr.filter(p=>Math.abs(Number(p.ts)-g.start)<15000).sort((a,b)=>Math.abs(a.ts-g.start)-Math.abs(b.ts-g.start))[0];
+  const d=nearest(dirs),id=nearest(ids);return row([formatTime(g.start),'Có mẫu cảnh báo'+(d?' · '+format('fall_direction',d.value):'')+(id?' · Mã '+id.value:'')]);
+ });
+ el.replaceChildren(...(rows.length?rows:[row(['--','Không có mẫu cảnh báo trong dữ liệu truy vấn'])]));
 }
-async function loadHistory(){
- historyMessageNode.textContent='Đang lấy dữ liệu lịch sử từ ThingsBoard...';
- try{const response=await fetch('/api/history?period='+encodeURIComponent(historyPeriodNode.value),{cache:'no-store'});const data=await response.json();if(!response.ok)throw new Error(data.error||'Không lấy được lịch sử');historyPayload=data;historyMessageNode.textContent='Đã tải lịch sử. Biểu đồ sử dụng dữ liệu trung bình theo khoảng thời gian; bảng cảnh báo sử dụng mẫu đã lưu.';drawHistory();renderFalls();}
- catch(error){historyPayload=null;historyMessageNode.textContent='Lỗi: '+error.message;drawHistory();renderFalls();}
-}
-function exportHistoryCSV(){const points=historyPoints();if(!points.length){historyMessageNode.textContent='Không có dữ liệu để xuất.';return;}const k=historyMetricNode.value;const csv='\uFEFFThời gian,'+historyLabels[k]+' ('+historyUnits[k]+')\r\n'+points.map(p=>'"'+vnTime(p.ts)+'",'+p.value).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='QUOCAN_IoT_'+k+'_'+historyPeriodNode.value+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-historyPeriodNode.addEventListener('change',loadHistory);
-historyMetricNode.addEventListener('change',drawHistory);
-document.getElementById('historyReload').addEventListener('click',loadHistory);
-document.getElementById('historyExport').addEventListener('click',exportHistoryCSV);
-window.addEventListener('resize',()=>{if(historyPayload)drawHistory();});
-loadHistory();
+async function loadHistory(){if(historyLoading)return;historyLoading=true;$('historyMessage').textContent='Đang tải dữ liệu lịch sử...';
+ try{const period=$('historyPeriod').value,metric=$('historyMetric').value;let mode=$('historyMode').value;if(categorical.has(metric)||metric==='fall_event_id'){mode='raw';$('historyMode').value='raw';$('historyMode').disabled=true;}else $('historyMode').disabled=false;
+  const params=new URLSearchParams({period,metric,mode});const res=await fetch('/api/history?'+params,{cache:'no-store'});const data=await res.json();if(!res.ok)throw Error(data.error||'Không tải được lịch sử');history=data;
+  $('historyMessage').textContent=`Đã tải ${period} · ${mode==='raw'?'Dữ liệu gốc':mode==='max'?'Giá trị cao nhất':'Giá trị trung bình'} · Giới hạn ${data.limit} mẫu/khóa. ${data.note||''}`;
+  drawHistory();renderEvents();
+ }catch(e){history=null;$('historyMessage').textContent='Lỗi: '+e.message;drawHistory();renderEvents();}finally{historyLoading=false;}}
+function exportCSV(){const pts=points();if(!pts.length){$('historyMessage').textContent='Không có dữ liệu để xuất.';return;}const k=$('historyMetric').value;
+ const csv='\uFEFFThời gian,'+labels[k]+' ('+(units[k]||'')+')\r\n'+pts.map(p=>'"'+formatTime(p.ts)+'","'+String(p.value).replaceAll('"','""')+'"').join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`QUOCAN_${k}_${$('historyPeriod').value}_${$('historyMode').value}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+for(const id of ['historyPeriod','historyMetric','historyMode'])$(id).addEventListener('change',loadHistory);
+$('historyReload').addEventListener('click',loadHistory);$('historyExport').addEventListener('click',exportCSV);
+window.addEventListener('resize',()=>{if(history)drawHistory();});loadHistory();
