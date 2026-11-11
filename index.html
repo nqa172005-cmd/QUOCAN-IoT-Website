@@ -17,6 +17,8 @@
     <nav class="navigation">
       <a class="nav-link active" href="#tong-quan"><span>▦</span>Tổng quan</a>
       <a class="nav-link" href="#giam-sat"><span>◉</span>Giám sát cảm biến</a>
+      <a class="nav-link" href="#chuyen-dong">◈ Phân loại vận động</a>
+      <a class="nav-link" href="#mpu-chi-tiet">⌁ Gia tốc & con quay</a>
       <a class="nav-link" href="#canh-bao"><span>♧</span>Cảnh báo an toàn</a>
       <a class="nav-link" href="#bieu-do-lich-su"><span>▤</span>Lịch sử dữ liệu</a>
     </nav>
@@ -83,6 +85,16 @@
         </article>
       </section>
 
+      <section class="panel dashboard-panel" id="phan-loai">
+        <div class="panel-heading"><div><h2>Phân loại vận động</h2><p>Trạng thái lấy trực tiếp từ activity_status của ESP32</p></div></div>
+        <div class="state-grid">
+          <div class="state-card" data-state="STILL_OR_IDLE"><b>Đứng yên / nghỉ</b><small>&lt; 0,2 km/h</small></div>
+          <div class="state-card" data-state="WALKING_SLOW"><b>Đi chậm</b><small>0,2 đến dưới 4 km/h</small></div>
+          <div class="state-card" data-state="WALKING_FAST"><b>Đi nhanh</b><small>Từ 4 km/h (chưa tách chạy)</small></div>
+          <div class="state-card" data-state="CHECKING_EVENT"><b>Nghi ngờ ngã</b><small>Đang xác minh tín hiệu</small></div>
+          <div class="state-card" data-state="FALL_ALERT"><b>Cảnh báo ngã</b><small>Thuật toán kích hoạt</small></div>
+        </div><p class="muted" id="activityFreshness">Đang chờ dữ liệu...</p>
+      </section>
       <section class="content-grid">
         <article class="panel alert-panel" id="canh-bao">
           <div class="panel-heading"><div><h2>Trạng thái an toàn</h2><p>Theo dõi cảnh báo té ngã</p></div><span class="panel-symbol">✚</span></div>
@@ -91,6 +103,14 @@
             <div><b id="fallStatus">Đang chờ dữ liệu</b><small id="activityStatus">Chưa có thông tin hoạt động</small></div>
           </div>
           <div class="fall-detail">Hướng nghi ngờ ngã: <b id="fallDirection">Chưa xác định</b></div>
+          <div class="direction-grid" aria-label="Hướng ngã ước tính">
+            <span></span><div data-dir="FRONT">↑ Trước</div><span></span>
+            <div data-dir="LEFT">← Trái</div><div class="direction-center">MPU6050</div><div data-dir="RIGHT">Phải →</div>
+            <span></span><div data-dir="BACK">↓ Sau</div><span></span>
+          </div>
+          <div class="device-row"><span>Đang nghi ngờ ngã</span><b id="fallCandidateValue">--</b></div>
+          <div class="device-row"><span>Mã sự kiện</span><b id="fallEventValue">--</b></div>
+          <div class="device-row"><span>Thời gian dữ liệu cảnh báo</span><b id="fallTimeValue">--</b></div>
           <div class="alert-note">Dữ liệu cảnh báo từ MPU6050 chỉ có tính tham khảo; không thay thế thiết bị cảnh báo an toàn chuyên dụng.</div>
         </article>
         <article class="panel device-panel">
@@ -123,11 +143,21 @@
         </div>
         <p class="alert-note">Vận tốc chỉ là ước tính từ nhịp bước; không phải phép đo GPS. Hướng ngã cần hiệu chuẩn cảm biến gắn ở thắt lưng.</p>
       </section>
+      <section class="panel dashboard-panel" id="mpu-chi-tiet">
+        <div class="panel-heading"><div><h2>Dữ liệu MPU6050 đầy đủ</h2><p>Gia tốc m/s² và vận tốc góc rad/s</p></div></div>
+        <div class="motion-grid">
+          <div class="motion-box"><span>Gia tốc tổng</span><b id="value-accel_total">--</b></div>
+          <div class="motion-box"><span>Con quay X</span><b id="value-gyro_x">--</b></div>
+          <div class="motion-box"><span>Con quay Y</span><b id="value-gyro_y">--</b></div>
+          <div class="motion-box"><span>Con quay Z</span><b id="value-gyro_z">--</b></div>
+        </div>
+      </section>
       <section class="panel dashboard-panel" id="bieu-do-lich-su">
         <div class="panel-heading"><div><h2>Biểu đồ lịch sử</h2><p>Dữ liệu từ ThingsBoard Cloud</p></div></div>
-        <div class="history-controls"><label>Khoảng thời gian <select id="historyPeriod"><option value="24h">24 giờ</option><option value="7d">7 ngày</option><option value="30d">30 ngày</option></select></label><label>Thông số <select id="historyMetric"><option value="temperature">Nhiệt độ</option><option value="humidity">Độ ẩm</option><option value="speed_kmh">Vận tốc ước tính</option><option value="step_count">Số bước chân</option><option value="accel_x">Gia tốc X</option><option value="accel_y">Gia tốc Y</option><option value="accel_z">Gia tốc Z</option></select></label><button id="historyReload" type="button">Tải lại</button><button id="historyExport" type="button">Xuất CSV</button></div>
+        <div class="history-controls"><label>Khoảng thời gian <select id="historyPeriod"><option value="1h">1 giờ</option><option value="24h">24 giờ</option><option value="7d">7 ngày</option><option value="30d">30 ngày</option></select></label><label>Thông số <select id="historyMetric"><option value="temperature">Nhiệt độ</option><option value="humidity">Độ ẩm</option><option value="speed_kmh">Vận tốc ước tính</option><option value="step_count">Số bước chân</option><option value="accel_x">Gia tốc X</option><option value="accel_y">Gia tốc Y</option><option value="accel_z">Gia tốc Z</option><option value="accel_total">Gia tốc tổng</option><option value="gyro_x">Con quay X</option><option value="gyro_y">Con quay Y</option><option value="gyro_z">Con quay Z</option><option value="activity_status">Trạng thái vận động</option><option value="fall_alert">Cảnh báo ngã</option><option value="fall_candidate">Nghi ngờ ngã</option><option value="fall_direction">Hướng nghi ngờ ngã</option><option value="fall_event_id">Mã sự kiện</option></select></label>
+        <label>Chế độ <select id="historyMode"><option value="raw">Dữ liệu gốc</option><option value="max">Cao nhất (MAX)</option><option value="avg">Trung bình (AVG)</option></select></label><button id="historyReload" type="button">Tải lại</button><button id="historyExport" type="button">Xuất CSV</button></div>
         <p id="historyMessage" role="status">Đang tải lịch sử...</p><canvas id="historyChart" height="310" aria-label="Biểu đồ dữ liệu lịch sử"></canvas><p id="historySummary"></p>
-        <div class="history-tables"><div><h3>Bảng dữ liệu lịch sử</h3><div class="table-scroll"><table class="telemetry-table"><thead><tr><th>Thời gian</th><th>Giá trị</th></tr></thead><tbody id="historyRows"></tbody></table></div></div><div><h3>Lịch sử cảnh báo</h3><div class="table-scroll"><table class="telemetry-table"><thead><tr><th>Thời gian</th><th>Trạng thái</th></tr></thead><tbody id="fallHistoryRows"></tbody></table></div></div></div>
+        <div class="history-tables"><div><h3>Bảng dữ liệu lịch sử</h3><div class="table-scroll"><table class="telemetry-table"><thead><tr><th>Thời gian</th><th>Giá trị</th></tr></thead><tbody id="historyRows"></tbody></table></div></div><div><h3>Lịch sử cảnh báo</h3><div class="table-scroll"><table class="telemetry-table"><thead><tr><th>Thời gian</th><th>Trạng thái / hướng</th></tr></thead><tbody id="fallHistoryRows"></tbody></table></div></div></div>
       </section>
 
 <footer><b>QUOCAN IoT</b><span>Hệ thống giám sát thông minh · Giao diện tiếng Việt</span></footer>

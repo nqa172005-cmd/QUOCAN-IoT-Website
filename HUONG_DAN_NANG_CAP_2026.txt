@@ -1,0 +1,32 @@
+QUOCAN IoT - BẢN NÂNG CẤP GIÁM SÁT ĐẦY ĐỦ
+=======================================
+
+1. CÁC CHỨC NĂNG MỚI
+- Hiển thị đủ 16 trường ESP32 gửi lên ThingsBoard.
+- Phân loại đứng yên, đi chậm, đi nhanh, nghi ngờ ngã và cảnh báo ngã.
+- Hướng ngã FRONT/BACK/LEFT/RIGHT, UNKNOWN/NONE.
+- Biểu đồ 1h, 24h, 7d, 30d: dữ liệu gốc / MAX / AVG.
+- Bảng lịch sử cảnh báo và CSV.
+- Phân biệt dữ liệu mới và dữ liệu cũ (30 giây).
+
+2. TRIỂN KHAI TRÊN GITHUB / RENDER
+- Giải nén ZIP. Không tải file .env hoặc mật khẩu lên GitHub.
+- Sao lưu nhánh đang chạy trước khi thay thế.
+- Trên GitHub, chọn nhánh nang-cap-van-toc; thay thế index.html, server.js, css/style.css, js/app.js.
+- Giữ nguyên các biến môi trường TB_USERNAME, TB_PASSWORD và TB_DEVICE_NAME hoặc TB_DEVICE_ID trên Render.
+- Commit & push để Render tự triển khai nếu đã kết nối nhánh. Kiểm tra Logs và trạng thái Deploy succeeded.
+- Mở website trên điện thoại, kiểm tra tốc độ tức thời và biểu đồ 1h / dữ liệu gốc.
+
+3. LƯU Ý KỸ THUẬT
+- Trạng thái WALKING_FAST trong firmware nghĩa là đi nhanh, KHÔNG khẳng định chạy.
+- Hướng ngã chỉ là ước tính và cần hiệu chuẩn vị trí đeo.
+- Khi chọn dữ liệu gốc, ThingsBoard giới hạn 10000 mẫu mỗi khóa. Các khoảng dài có thể chưa đủ mẫu.
+- Tùy ThingsBoard, dữ liệu MAX/AVG phụ thuộc độ phân giải và độ đầy đủ của bản ghi.
+- Nếu Render ngủ, lần mở đầu có thể chậm.
+- Website chưa thay thế hệ thống an toàn chuyên dụng.
+
+4. KIỂM TRA ĐÃ THỰC HIỆN
+- node --check server.js và js/app.js: đạt.
+- Máy chủ Node.js phục vụ HTML, JS: HTTP 200.
+- Truy vấn history với period sai: HTTP 400.
+- Chưa kiểm thử với ThingsBoard thật vì không sử dụng thông tin xác thực của bạn.

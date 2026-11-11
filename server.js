@@ -35,7 +35,8 @@ const keys = [
   "temperature",
   "humidity",
   "speed_kmh",
-  "accel_x", "accel_y", "accel_z",
+  "accel_x", "accel_y", "accel_z", "accel_total",
+  "gyro_x", "gyro_y", "gyro_z",
   "fall_direction", "fall_candidate", "fall_event_id",
   "step_count",
   "fall_alert",
@@ -176,25 +177,36 @@ async function getTelemetry() {
 }
 
 
-// ===== LỊCH SỬ DỮ LIỆU THINGSBOARD =====
-const historyKeys = "temperature,humidity,speed_kmh,step_count,accel_x,accel_y,accel_z,fall_alert";
-const periods = { "24h": 24*3600000, "7d": 7*86400000, "30d": 30*86400000 };
-async function getHistory(period) {
-  if (!Object.prototype.hasOwnProperty.call(periods, period)) {
-    throw new Error("Khoảng thời gian không hợp lệ");
-  }
-  const endTs = Date.now();
-  const startTs = endTs - periods[period];
-  // AVG phù hợp biểu đồ các đại lượng liên tục; riêng cảnh báo lấy mẫu thô bên dưới.
-  const interval = period === "24h" ? 15*60000 : period === "7d" ? 2*3600000 : 8*3600000;
+// ===== LỊCH SỬ: dữ liệu gốc, MAX và AVG, không làm mất đỉnh vận tốc =====
+const historyKeys = keys;
+const periods = { "1h": 3600000, "24h": 86400000, "7d": 604800000, "30d": 2592000000 };
+const allowedModes = new Set(["raw", "max", "avg"]);
+async function getHistory(period, metric, mode) {
+  if (!Object.hasOwn(periods, period)) throw new Error("Khoảng thời gian không hợp lệ");
+  if (!keys.split(",").includes(metric)) throw new Error("Thông số không hợp lệ");
+  if (!allowedModes.has(mode)) throw new Error("Chế độ không hợp lệ");
+  const endTs = Date.now(), startTs = endTs - periods[period];
+  const interval = period === "1h" ? 10000 : period === "24h" ? 60000 : period === "7d" ? 900000 : 3600000;
   const id = await getDeviceId();
   const prefix = "/api/plugins/telemetry/DEVICE/" + encodeURIComponent(id) + "/values/timeseries";
-  const params = new URLSearchParams({ keys: historyKeys, startTs: String(startTs), endTs: String(endTs), interval: String(interval), agg: "AVG", limit: "1000" });
-  const history = await tb(prefix + "?" + params.toString());
-  // Cảnh báo 0/1 không được suy luận từ trung bình: lấy các mẫu thực tế riêng.
-  const eventParams = new URLSearchParams({ keys: "fall_alert", startTs: String(startTs), endTs: String(endTs), agg: "NONE", limit: "10000" });
-  const eventData = await tb(prefix + "?" + eventParams.toString());
-  return { period, startTs, endTs, interval, series: history, fallSamples: eventData.fall_alert || [], fallSamplesLimit: 10000 };
+  const categorical = new Set(["activity_status", "fall_direction", "fall_alert", "fall_candidate", "fall_event_id"]);
+  const effectiveMode = categorical.has(metric) ? "raw" : mode;
+  const params = new URLSearchParams({
+    keys: metric, startTs: String(startTs), endTs: String(endTs),
+    agg: effectiveMode === "raw" ? "NONE" : effectiveMode.toUpperCase(),
+    limit: effectiveMode === "raw" ? "10000" : "1500"
+  });
+  if (effectiveMode !== "raw") params.set("interval", String(interval));
+  const series = await tb(prefix + "?" + params);
+  // Lịch sử sự kiện độc lập với biểu đồ đang chọn; không suy ra cảnh báo từ AVG.
+  const eventParams = new URLSearchParams({
+    keys: "fall_alert,fall_candidate,fall_direction,fall_event_id,activity_status",
+    startTs: String(startTs), endTs: String(endTs), agg: "NONE", limit: "10000"
+  });
+  const events = await tb(prefix + "?" + eventParams);
+  return { period, metric, mode: effectiveMode, startTs, endTs, interval,
+    series, events, limit: effectiveMode === "raw" ? 10000 : 1500,
+    note: "Giới hạn số mẫu mỗi khóa; nếu vượt giới hạn, kết quả có thể không đầy đủ." };
 }
 
 // ===== 9. TRẢ DỮ LIỆU JSON =====
@@ -239,8 +251,11 @@ const server = http.createServer(
       if (url.pathname === "/api/history") {
         if (req.method !== "GET") return sendJson(res, 405, { error: "Phương thức không được hỗ trợ" });
         const period = url.searchParams.get("period") || "24h";
-        if (!Object.prototype.hasOwnProperty.call(periods, period)) return sendJson(res, 400, { error: "Chọn 24h, 7d hoặc 30d" });
-        return sendJson(res, 200, await getHistory(period));
+        const metric = url.searchParams.get("metric") || "speed_kmh";
+        const mode = url.searchParams.get("mode") || "raw";
+        if (!Object.hasOwn(periods, period) || !keys.split(",").includes(metric) || !allowedModes.has(mode))
+          return sendJson(res, 400, { error: "Tham số lịch sử không hợp lệ" });
+        return sendJson(res, 200, await getHistory(period, metric, mode));
       }
 
       // Các file website được phép truy cập
